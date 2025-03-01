@@ -72,8 +72,8 @@ class Transcription:
         """
         device: str = ""
         compute_type: str = ""
-        model: WhisperModel = None
-        segments: Iterable[Segment] = None
+        model: WhisperModel | None = None
+        segments: Iterable[Segment] | None = None
 
         if torch.cuda.is_available():
             device = "cuda"
@@ -85,6 +85,9 @@ class Transcription:
         model = WhisperModel(model_size, device=device, compute_type=compute_type)
         segments, _ = model.transcribe(self.media_file_path, language="ja")
         self.transcriptions = []
+
+        if not segments:
+            raise ValueError("音声ファイルの文字起こしに失敗しました")
 
         for segment in segments:
             item: dict = {
@@ -111,7 +114,7 @@ class Transcription:
         pipeline: Pipeline = Pipeline.from_pretrained(
             "pyannote/speaker-diarization-3.1", use_auth_token=hugging_face_token
         )
-        diarization: Annotation = None
+        diarization: Annotation | None = None
 
         if torch.cuda.is_available():
             audio: tuple[Tensor, int] = torchaudio.load(self.media_file_path)
@@ -216,7 +219,7 @@ class Transcription:
             file_path (str): 保存先のファイルパス
             encoding (str): 保存する際の文字コード
         """
-        col_names: list[str] = self.merged_results[0].keys()
+        col_names: list[str] = list(self.merged_results[0].keys())
         separators: list[str] = ["---"] * len(col_names)
         header_row: str = self.__format_values_to_md_table_row(col_names)
         separator_row: str = self.__format_values_to_md_table_row(separators)

@@ -17,13 +17,14 @@ if __name__ == "__main__":
     export_dir_path: str = "./assets/texts"
     export_file_path: str = ""
     prefix: str = ""
+    model_size: str = "large-v3-turbo"
     transcription: Transcription = Transcription(media_file_path)
     is_video: bool = transcription.is_video()
 
     if is_video:
         transcription.convert_video_to_audio()
 
-    transcription.transcribe_audio("large-v3")
+    transcription.transcribe_audio(model_size)
     transcription.diarize_audio(HUGGING_FACE_TOKEN)
     transcription.merge_results()
 
