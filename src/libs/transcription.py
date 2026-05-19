@@ -11,6 +11,19 @@ import torchaudio
 from faster_whisper import WhisperModel
 from faster_whisper.transcribe import Segment
 from moviepy.editor import VideoFileClip
+# Ensure networkx backend env vars do not inject invalid backend names.
+for key in (
+    "NETWORKX_BACKENDS",
+    "NETWORKX_BACKEND",
+    "NX_BACKENDS",
+    "NX_BACKEND",
+    "NETWORKX_AUTOMATIC_BACKENDS",
+    "NETWORKX_BACKEND_PRIORITY",
+    "NETWORKX_BACKEND_PRIORITY_ALGOS",
+    "NETWORKX_BACKEND_PRIORITY_GENERATORS",
+):
+    os.environ.pop(key, None)
+
 from pyannote.audio import Pipeline
 from pyannote.core import Annotation
 from torch import Tensor
@@ -70,6 +83,7 @@ class Transcription:
         Args:
             model_size (str): Whisperモデルのサイズ（"tiny", "base", "small", "medium", "large"）
         """
+        print(f"[pipeline] transcribe_audio called: model={model_size}")
         device: str = ""
         compute_type: str = ""
         model: WhisperModel | None = None
@@ -81,6 +95,8 @@ class Transcription:
         else:
             device = "cpu"
             compute_type = "int8"
+
+        print(f"[pipeline] transcribe_audio device={device} compute_type={compute_type}")
 
         model = WhisperModel(model_size, device=device, compute_type=compute_type)
         segments, _ = model.transcribe(self.media_file_path, language="ja")
@@ -111,6 +127,7 @@ class Transcription:
         Args:
             hugging_face_token (str): HuggingFaceのアクセストークン
         """
+        print("[pipeline] diarize_audio called")
         pipeline: Pipeline = Pipeline.from_pretrained(
             "pyannote/speaker-diarization-3.1", use_auth_token=hugging_face_token
         )
@@ -121,8 +138,10 @@ class Transcription:
 
             pipeline.to(torch.device("cuda"))
             diarization = pipeline({"waveform": audio[0], "sample_rate": audio[1]})
+            print("[pipeline] diarize_audio device=cuda")
         else:
             diarization = pipeline(self.media_file_path)
+            print("[pipeline] diarize_audio device=cpu")
 
         self.speaker_segments = []
 
@@ -151,6 +170,7 @@ class Transcription:
         """
         文字起こしと話者分離の結果を時間軸に基づいて結合する
         """
+        print("[pipeline] merge_results called")
         i: int = 0
         j: int = 0
 
@@ -185,6 +205,7 @@ class Transcription:
             file_path (str): 保存先のファイルパス
             encoding (str): 保存する際の文字コード
         """
+        print(f"[pipeline] export_results_to_csv called: {file_path}")
         df: pd.DataFrame = pd.DataFrame(self.merged_results)
         df.to_csv(file_path, index=False, encoding=encoding)
 
@@ -196,6 +217,7 @@ class Transcription:
             file_path (str): 保存先のファイルパス
             encoding (str): 保存する際の文字コード
         """
+        print(f"[pipeline] export_results_to_json called: {file_path}")
         with open(file_path, "w", encoding=encoding) as file:
             json.dump(self.merged_results, file, indent=4, ensure_ascii=False)
 
@@ -219,6 +241,7 @@ class Transcription:
             file_path (str): 保存先のファイルパス
             encoding (str): 保存する際の文字コード
         """
+        print(f"[pipeline] export_results_to_md called: {file_path}")
         col_names: list[str] = list(self.merged_results[0].keys())
         separators: list[str] = ["---"] * len(col_names)
         header_row: str = self.__format_values_to_md_table_row(col_names)
